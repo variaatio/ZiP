@@ -428,12 +428,14 @@ def imprep(sci_im, ref_im, chopx, chopy, inject = False, lineup = False):
         if W != 0:
             #Includes WCS from ref, should be same for both images if 
              #they are alligned
+			
+			# cutout2D so data, center coordinates of the cut out, coutoutsize, wcs to apply
             CUT = cut(ref_data, (CC[i][0], CC[i][1]), (Yfrac, Xfrac), W)
             CUT2 = cut(sci_data, (CC[i][0], CC[i][1]), (Yfrac, Xfrac), W)
         else:
             CUT = cut(ref_data, (CC[i][0], CC[i][1]), (Yfrac, Xfrac))
             CUT2 = cut(sci_data, (CC[i][0], CC[i][1]), (Yfrac, Xfrac))
-
+		# write out the 2D coutouts
         hdu = fits.PrimaryHDU(CUT.data, header=CUT.wcs.to_header())
         hdu.writeto('Zoutput/ref_cut%s.fits' %(i+1), overwrite=True)
         hdu = fits.PrimaryHDU(CUT2.data, header=CUT2.wcs.to_header())
@@ -568,15 +570,19 @@ def finp(image, name, xslice, yslice, clean_sci, clean_ref, blackout):
     and Scorr images.
     """
 
+    # based on image prep image names should match, but were globbed only for reference frame
+	# make matching science frame copy of name list
     sci = image.replace('ref', 'sci')
 
     #Parallell PSF modelling
     with multiprocessing.Pool(2) as p:
         V1, V2 = p.map(get_psf, [sci, image])
+	# assing psf files
+	# 1 is science frame, 2 is reference frame
     psf_dat, psf_hed, sexcat1, psfcat1 = V1 
     psf2_dat, psf2_hed, sexcat2, psfcat2 = V2 
     p.close()
-
+	# calculate brightness ratios
     x_fratio, y_fratio, fratio, dx, dy = get_fratio(psfcat1, psfcat2, sexcat1, sexcat2)
     FM = np.median(fratio)
 
@@ -672,9 +678,13 @@ def finp(image, name, xslice, yslice, clean_sci, clean_ref, blackout):
 
 
 ###################################################################################################################
-def run_ZOGY(sci_im, ref_im, outname = 'data', xslice = 1, yslice = 1, 
-             align = False, clean_sci = 0.75,clean_ref = 0.75, 
-             sub_imagex = 1, sub_imagey =1, blackout = False):
+def run_ZOGY(sci_im, ref_im,
+			 outname = 'data',
+			 xslice = 1, yslice = 1, 
+             align = False,
+			 clean_sci = 0.75, clean_ref = 0.75,
+             sub_imagex = 1, sub_imagey =1,
+			 blackout = False):
 
 
     """
@@ -682,6 +692,35 @@ def run_ZOGY(sci_im, ref_im, outname = 'data', xslice = 1, yslice = 1,
 
     Only create sub_image if PSF variation over the field can't be modelled with a 3rd order polynomial
     or you are trying to reduce computation time. (The PSF model will degrade if this is used)
+	
+	Parameters
+	----------
+	sci_im : str
+		science image name
+	ref_im : str
+		reference image name
+	outname : str
+		filenames for output
+	xslice : int
+		number of x PSF slices
+	yslice : int
+		number of y PSF slices
+	align : bool
+		aligns sci to ref image befroe subtrcation
+	clean_sci : float
+		handles overfitting of PSF model for science frame. between 0 and 1
+	clean_ref : float
+		handles overfitting of PSF model for reference frame. between 0 and 1
+	sub_imagex : int
+		number of x sub image slices 
+	sub_imagey : int
+		number of y sub image slices
+	blackout : bool 
+		remove data where images do not overlap
+	
+	Returns
+	-------
+	None
     """
  
      #      Make directory suitable       #
@@ -690,18 +729,24 @@ def run_ZOGY(sci_im, ref_im, outname = 'data', xslice = 1, yslice = 1,
         os.makedirs('./Zoutput')
         print('Output directory made!')
     else:
-    	  for fil in glob.glob('./Zoutput/sci_cut*'):
-    	      subprocess.call(['rm', fil])
-    	  for fil in glob.glob('./Zoutput/ref_cut*'):
-    	      subprocess.call(['rm', fil])
+		# cleanout out previous files
+		for fil in glob.glob('./Zoutput/sci_cut*'):
+			subprocess.call(['rm', fil])
+		for fil in glob.glob('./Zoutput/ref_cut*'):
+			subprocess.call(['rm', fil])
     ########################################
 
+	#get number of cores
     x = multiprocessing.cpu_count()
     if x < 6:
         print('Serial version')
         ncores = x
+		# prepare images, these written out to Zoutput
         imprep(sci_im, ref_im, sub_imagex, sub_imagey, lineup = align)
+		# collect image names with glob
+		# only reference frame image names
         refs = glob.glob('./Zoutput/ref_cut*.fits')
+		# feed image names to the processor
         for SLICE in refs:
             finp(SLICE, outname, xslice, yslice, clean_sci, clean_ref, blackout)
     else:
