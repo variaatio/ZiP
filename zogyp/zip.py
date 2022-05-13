@@ -584,14 +584,16 @@ def finp(image, name, xslice, yslice, clean_sci, clean_ref, blackout):
     p.close()
 	# calculate brightness ratios
     x_fratio, y_fratio, fratio, dx, dy = get_fratio(psfcat1, psfcat2, sexcat1, sexcat2)
+    # calculate over all brightness ratio estimate
     FM = np.median(fratio)
-
+    # file names resolving
     fnum = image.replace('./Zoutput/ref_cut','')
     fnum2= fnum.replace('.fits','')
-
+    # normalize to science frame
     f_new = 1.0
+    # calculate multiplier for reference frame
     f_ref = f_new/FM
-
+    # calculate over all astrometric error estimate
     dx_full = np.median(dx)
     dy_full = np.median(dy)
 
@@ -622,12 +624,12 @@ def finp(image, name, xslice, yslice, clean_sci, clean_ref, blackout):
 
     sub_dat2 = dat2 - bkg2 #bkg subtracted data
     
-
+    # develop cutouts and needed psf kernels for each cutout
     cdat, psf = chop_kern(sub_dat, psf_dat, psf_hed, xslice, yslice, clean_sci)
     cdat2, psf2 = chop_kern(sub_dat2, psf2_dat, psf2_hed, xslice, yslice, clean_ref)
 
-
-    data_D = [0]*len(cdat) #empty frames
+    #make empty frames
+    data_D = [0]*len(cdat)
     data_S = [0]*len(cdat)
     data_Sc = [0]*len(cdat)
 
@@ -741,12 +743,12 @@ def run_ZOGY(sci_im, ref_im,
     if x < 6:
         print('Serial version')
         ncores = x
-		# prepare images, these written out to Zoutput
+	# prepare images, these written out to Zoutput
         imprep(sci_im, ref_im, sub_imagex, sub_imagey, lineup = align)
-		# collect image names with glob
-		# only reference frame image names
+	# collect image names with glob
+	# only reference frame image names
         refs = glob.glob('./Zoutput/ref_cut*.fits')
-		# feed image names to the processor
+	# feed image names to the processor
         for SLICE in refs:
             finp(SLICE, outname, xslice, yslice, clean_sci, clean_ref, blackout)
     else:
